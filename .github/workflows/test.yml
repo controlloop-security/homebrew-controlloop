@@ -1,0 +1,64 @@
+name: Test formula
+
+# Proves the formula installs and the installed binary performs a real
+# scan, on macOS (Apple Silicon) and on Linux, every time the formula
+# changes. The ControlLoop release pipeline updates `Formula/controlloop.rb`
+# through the GitHub API, which triggers this workflow. Homebrew is
+# preinstalled on both GitHub-hosted runners.
+
+on:
+  push:
+    paths:
+      - "Formula/**"
+      - ".github/workflows/test.yml"
+  pull_request:
+    paths:
+      - "Formula/**"
+      - ".github/workflows/test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: brew install (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            label: macos-arm64
+          - os: ubuntu-latest
+            label: linux-x86_64
+    timeout-minutes: 20
+    steps:
+      - name: Check out the tap
+        uses: actions/checkout@v7.0.1
+
+      - name: Install the formula from this checkout
+        run: |
+          set -euo pipefail
+          brew tap controlloop-security/controlloop "$PWD"
+          brew install --formula controlloop-security/controlloop/controlloop
+
+      - name: Run the formula's own test block
+        run: brew test controlloop-security/controlloop/controlloop
+
+      - name: Real scan against a synthetic fixture
+        run: |
+          set -euo pipefail
+          controlloop --version
+          mkdir -p "$RUNNER_TEMP/fixture"
+          printf '%s' '{"name": "report-agent", "skills": [{"id": "read-quarterly-metrics", "name": "read-quarterly-metrics"}]}' \
+            > "$RUNNER_TEMP/fixture/agent-card.json"
+          controlloop scan "$RUNNER_TEMP/fixture" --format json > "$RUNNER_TEMP/report.json"
+          python3 -c "
+          import json, sys
+          report = json.load(open('$RUNNER_TEMP/report.json'))
+          sys.exit(0 if report['verdict'] == 'passed' else 1)
+          "
+
+      - name: Audit the formula
+        run: brew audit --strict --online controlloop-security/controlloop/controlloop
