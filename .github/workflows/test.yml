@@ -55,11 +55,10 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@d482da0e602890d3160aade42e72c8556103bf04
 
       - name: Install the formula from this checkout
+        # setup-homebrew has already tapped this repository (it detects
+        # that it runs inside a tap), so the formula installs by name.
         if: steps.formula.outputs.present == 'true'
-        run: |
-          set -euo pipefail
-          brew tap controlloop-security/controlloop "$PWD"
-          brew install --formula controlloop-security/controlloop/controlloop
+        run: brew install --formula controlloop-security/controlloop/controlloop
 
       - name: Run the formula's own test block
         if: steps.formula.outputs.present == 'true'
