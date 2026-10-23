@@ -4,7 +4,6 @@
 class Controlloop < Formula
   desc "Local-first security scanner and deterministic CI gate for AI agents"
   homepage "https://controlloop.ai"
-  version "0.2.0"
   license "Apache-2.0"
 
   on_macos do
