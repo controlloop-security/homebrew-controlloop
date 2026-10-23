@@ -28,6 +28,10 @@ alternative, `uv tool install controlloop` or `pipx install controlloop`.
 Until the first release that carries a formula is tagged, this tap has no
 formula and `brew install` reports that the formula does not exist.
 
+The test workflow runs on every change to the formula, installs it on
+macOS (Apple Silicon) and Linux, runs its test block, a real scan and
+`brew audit`; until the formula exists it ends with a notice instead.
+
 ## Verifying
 
 Every checksum in the formula comes from the release's own `SHA256SUMS`

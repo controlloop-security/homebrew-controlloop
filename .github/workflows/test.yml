@@ -3,8 +3,9 @@ name: Test formula
 # Proves the formula installs and the installed binary performs a real
 # scan, on macOS (Apple Silicon) and on Linux, every time the formula
 # changes. The ControlLoop release pipeline updates `Formula/controlloop.rb`
-# through the GitHub API, which triggers this workflow. Homebrew is
-# preinstalled on both GitHub-hosted runners.
+# through the GitHub API, which triggers this workflow. Until the first
+# release writes the formula, there is nothing to install and every job
+# ends early with a notice rather than a failure.
 
 on:
   push:
@@ -37,16 +38,35 @@ jobs:
       - name: Check out the tap
         uses: actions/checkout@v7.0.1
 
+      - name: Is there a formula yet?
+        id: formula
+        run: |
+          if [ -f Formula/controlloop.rb ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No Formula/controlloop.rb yet; the first ControlLoop release writes it. Nothing to test."
+          fi
+
+      - name: Set up Homebrew
+        # Preinstalled on macOS runners, not on Ubuntu ones. Pinned to a
+        # commit because this repository publishes no version tags.
+        if: steps.formula.outputs.present == 'true'
+        uses: Homebrew/actions/setup-homebrew@d482da0e602890d3160aade42e72c8556103bf04
+
       - name: Install the formula from this checkout
+        if: steps.formula.outputs.present == 'true'
         run: |
           set -euo pipefail
           brew tap controlloop-security/controlloop "$PWD"
           brew install --formula controlloop-security/controlloop/controlloop
 
       - name: Run the formula's own test block
+        if: steps.formula.outputs.present == 'true'
         run: brew test controlloop-security/controlloop/controlloop
 
       - name: Real scan against a synthetic fixture
+        if: steps.formula.outputs.present == 'true'
         run: |
           set -euo pipefail
           controlloop --version
@@ -61,4 +81,5 @@ jobs:
           "
 
       - name: Audit the formula
+        if: steps.formula.outputs.present == 'true'
         run: brew audit --strict --online controlloop-security/controlloop/controlloop
